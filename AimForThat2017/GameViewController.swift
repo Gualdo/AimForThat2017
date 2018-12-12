@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import QuartzCore
 
 class GameViewController: UIViewController {
     
@@ -16,23 +17,44 @@ class GameViewController: UIViewController {
     @IBOutlet weak var targetLabel: UILabel!
     @IBOutlet weak var scoreLabel: UILabel!
     @IBOutlet weak var roundLabel: UILabel!
+    @IBOutlet weak var timeLabel: UILabel!
+    @IBOutlet weak var recordLabel: UILabel!
     
     //MARK: - Global Variables
     
     var targetValue: Int = 0
     var round: Int = 1
     var score: Int = 0
+    var time: Int = 0
+    var timer: Timer?
+    var recordScore: Int = 0
+    var backFromInfo: Bool = false
     
     //MARK: - Life Cicle
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        recordScore = UserDefaults.standard.integer(forKey: "maxScore")
         setupSlider()
         resetGame()
     }
     
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        if backFromInfo {
+            backFromInfo = false
+            timer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(tick), userInfo: nil, repeats: true)
+        }
+    }
+    
     //MARK: - Actions
+    
+    @IBAction func infoButtonPressed() {
+        timer?.invalidate()
+        backFromInfo = true
+    }
     
     @IBAction func startNewGame() {
         resetGame()
@@ -64,13 +86,9 @@ class GameViewController: UIViewController {
                 return "Has ido lejos..."
             }
         }
+        timer?.invalidate()
         let message = "Has marcado \(points) puntos"
-        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        let action = UIAlertAction(title: "OK!", style: .default, handler: { action in
-             self.starNewRound()
-        })
-        alert.addAction(action)
-        present(alert, animated: true)
+        presentOkAlertAndStartNewRound(title: title, message: message)
         score += points
     }
     
@@ -104,20 +122,64 @@ class GameViewController: UIViewController {
     }
     
     fileprivate func updateLabels() {
+        handleMaxScore()
         targetLabel.text = "\(targetValue)"
         scoreLabel.text = "\(score)"
         roundLabel.text = "\(round)"
+        timeLabel.text = "\(time)"
+        recordLabel.text = "\(recordScore)"
     }
     
-    fileprivate func starNewRound() {
+    fileprivate func startNewRound() {
         round += 1
+        time = 5
         targetValue = generateRandomNumber()
         updateLabels()
-        resetSliderStatus()    }
+        resetSliderStatus()
+        let transition = CATransition()
+        transition.type = .fade
+        transition.duration = 0.5
+        transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        self.view.layer.add(transition, forKey: nil)
+        
+        if timer != nil {
+            timer?.invalidate()
+        }
+        
+        timer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(tick), userInfo: nil, repeats: true)
+    }
     
     fileprivate func resetGame() {
         score = 0
         round = 0
-        starNewRound()
+        startNewRound()
+    }
+    
+    @objc fileprivate func tick() {
+        time -= 1
+        timeLabel.text = "\(time)"
+        
+        if time <= 0 {
+            timer?.invalidate()
+            presentOkAlertAndStartNewRound(title: "Watch time!!!", message: "Your time has expired, go faster on the next round!!!")
+        }
+    }
+    
+    fileprivate func presentOkAlertAndStartNewRound(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        let action = UIAlertAction(title: "OK!", style: .default, handler: { action in
+            self.startNewRound()
+        })
+        alert.addAction(action)
+        present(alert, animated: true)
+    }
+    
+    fileprivate func handleMaxScore() {
+        let maxScore = UserDefaults.standard.integer(forKey: "maxScore")
+        
+        if maxScore < score {
+            UserDefaults.standard.set(score, forKey: "maxScore")
+            recordScore = score
+        }
     }
 }
