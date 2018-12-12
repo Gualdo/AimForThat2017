@@ -11,6 +11,11 @@ import QuartzCore
 
 class GameViewController: UIViewController {
     
+    enum RoundOrGame: Int {
+        case Round
+        case Game
+    }
+    
     //MARK: - Outlets
     
     @IBOutlet weak var slider: UISlider!
@@ -29,6 +34,7 @@ class GameViewController: UIViewController {
     var timer: Timer?
     var recordScore: Int = 0
     var backFromInfo: Bool = false
+    var restoreType: RoundOrGame?
     
     //MARK: - Life Cicle
     
@@ -86,8 +92,8 @@ class GameViewController: UIViewController {
                 return "Has ido lejos..."
             }
         }
-        timer?.invalidate()
         let message = "Has marcado \(points) puntos"
+        restoreType = RoundOrGame.Round
         presentOkAlertAndStartNewRound(title: title, message: message)
         score += points
     }
@@ -132,7 +138,6 @@ class GameViewController: UIViewController {
     
     fileprivate func startNewRound() {
         round += 1
-        time = 5
         targetValue = generateRandomNumber()
         updateLabels()
         resetSliderStatus()
@@ -152,6 +157,7 @@ class GameViewController: UIViewController {
     fileprivate func resetGame() {
         score = 0
         round = 0
+        time = 5
         startNewRound()
     }
     
@@ -161,14 +167,27 @@ class GameViewController: UIViewController {
         
         if time <= 0 {
             timer?.invalidate()
-            presentOkAlertAndStartNewRound(title: "Watch time!!!", message: "Your time has expired, go faster on the next round!!!")
+            if let vC = self.presentedViewController {
+                vC.dismiss(animated: true, completion: {
+                    self.restoreType = RoundOrGame.Game
+                    self.presentOkAlertAndStartNewRound(title: "Watch time!!!", message: "Your time has expired, go faster on the next time!!!")
+                })
+            } else {
+                restoreType = RoundOrGame.Game
+                presentOkAlertAndStartNewRound(title: "Watch time!!!", message: "Your time has expired, go faster on the next time!!!")
+            }
         }
     }
     
     fileprivate func presentOkAlertAndStartNewRound(title: String, message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         let action = UIAlertAction(title: "OK!", style: .default, handler: { action in
-            self.startNewRound()
+            if self.restoreType == RoundOrGame.Round {
+                self.startNewRound()
+            }
+            if self.restoreType == RoundOrGame.Game {
+                self.resetGame()
+            }
         })
         alert.addAction(action)
         present(alert, animated: true)
